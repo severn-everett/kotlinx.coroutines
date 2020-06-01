@@ -22,36 +22,6 @@ class RunBlockingTest : TestBase() {
     }
 
     @Test
-    fun testPrivateEventLoop() {
-        expect(1)
-        runBlocking {
-            expect(2)
-            assertTrue(coroutineContext[ContinuationInterceptor] is EventLoop)
-            yield() // is supported!
-            expect(3)
-        }
-        finish(4)
-    }
-
-    @Test
-    fun testOuterEventLoop() {
-        expect(1)
-        runBlocking {
-            expect(2)
-            val outerEventLoop = coroutineContext[ContinuationInterceptor] as EventLoop
-            runBlocking(coroutineContext) {
-                expect(3)
-                // still same event loop
-                assertSame(coroutineContext[ContinuationInterceptor], outerEventLoop)
-                yield() // still works
-                expect(4)
-            }
-            expect(5)
-        }
-        finish(6)
-    }
-
-    @Test
     fun testOtherDispatcher() = runMtTest {
         expect(1)
         val name = "RunBlockingTest.testOtherDispatcher"
@@ -65,23 +35,6 @@ class RunBlockingTest : TestBase() {
         }
         finish(4)
         thread.close()
-    }
-
-    @Test
-    fun testCancellation()  = runMtTest {
-        newFixedThreadPoolContext(2, "testCancellation").use {
-            val job = GlobalScope.launch(it) {
-                runBlocking(coroutineContext) {
-                    while (true) {
-                        yield()
-                    }
-                }
-            }
-
-            runBlocking {
-                job.cancelAndJoin()
-            }
-        }
     }
 
     @Test
