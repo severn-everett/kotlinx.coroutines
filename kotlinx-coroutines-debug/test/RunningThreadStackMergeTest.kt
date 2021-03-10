@@ -112,6 +112,7 @@ class RunningThreadStackMergeTest : DebugTestBase() {
     }
 
     @Test
+    @Ignore
     fun testMergeThroughInvokeSuspend() = runTest {
         launchEscapingCoroutineWithoutContext()
         awaitCoroutineStarted()
