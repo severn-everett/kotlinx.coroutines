@@ -13,3 +13,6 @@ public final class kotlinx/coroutines/slf4j/MDCContext : kotlin/coroutines/Abstr
 public final class kotlinx/coroutines/slf4j/MDCContext$Key : kotlin/coroutines/CoroutineContext$Key {
 }
 
+public final class kotlinx/coroutines/slf4j/MDCContextKt {
+}
+
