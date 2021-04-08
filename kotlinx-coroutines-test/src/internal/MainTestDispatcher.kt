@@ -64,7 +64,7 @@ internal class TestMainDispatcherFactory : MainDispatcherFactory {
     override fun createDispatcher(allFactories: List<MainDispatcherFactory>): MainCoroutineDispatcher {
         val originalFactory = allFactories.asSequence()
             .filter { it !== this }
-            .maxBy { it.loadPriority } ?: MissingMainCoroutineDispatcherFactory
+            .maxByOrNull { it: MainDispatcherFactory -> it.loadPriority } ?: MissingMainCoroutineDispatcherFactory
         return TestMainDispatcher(originalFactory)
     }
 
