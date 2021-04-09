@@ -20,7 +20,7 @@ fun mainBackground(args: Array<String>) {
 
 // This is a separate entry point for tests with leak checker
 fun mainNoExit(args: Array<String>) {
-    Platform.isMemoryLeakCheckerActive = true
+    Platform.isMemoryLeakCheckerActive = false
     testLauncherEntryPoint(args)
     DefaultDispatcher.shutdown()
 }
