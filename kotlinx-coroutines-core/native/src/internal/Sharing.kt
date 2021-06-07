@@ -209,11 +209,10 @@ private class ShareableDisposableHandle(
 private typealias Block1<T, R> = suspend (T) -> R
 private typealias Fun2<T, R> = Function2<T, Continuation<R>, Any?>
 
-// todo: SuspendFunction impl is a hack to workaround the absence of proper suspend fun implementation ability
 @Suppress("SUPERTYPE_IS_SUSPEND_FUNCTION_TYPE", "INCONSISTENT_TYPE_PARAMETER_VALUES")
 private class ShareableBlock<T, R>(
     block: Block1<T, R>
-) : ShareableObject<Block1<T, R>>(block), Block1<T, R>, SuspendFunction<R>, Fun2<T, R> {
+) : ShareableObject<Block1<T, R>>(block), Block1<T, R>, Fun2<T, R> {
     override suspend fun invoke(param: T): R = useRef().invoke(param)
 
     @Suppress("UNCHECKED_CAST")
