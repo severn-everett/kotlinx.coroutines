@@ -17,12 +17,12 @@ class MavenPublicationValidator {
         assertTrue(result.exceptionOrNull() is ClassNotFoundException)
     }
 
-    @Test
-    @Ignore
-    fun testNoAtomicfuInMppJar() {
-        val clazz = Class.forName("kotlinx.coroutines.Job")
-        JarFile(clazz.protectionDomain.codeSource.location.file).checkForAtomicFu()
-    }
+//    @Test
+//    @Ignore
+//    fun testNoAtomicfuInMppJar() {
+//        val clazz = Class.forName("kotlinx.coroutines.Job")
+//        JarFile(clazz.protectionDomain.codeSource.location.file).checkForAtomicFu()
+//    }
 
     @Test
     fun testNoAtomicfuInAndroidJar() {
