@@ -35,7 +35,7 @@ suspend fun main() = coroutineScope {
   * [select] expression support and more.
 * [core/jvm](kotlinx-coroutines-core/jvm/) &mdash; additional core features available on Kotlin/JVM:
   * [Dispatchers.IO] dispatcher for blocking coroutines;
-  * [Executor.asCoroutineDispatcher] extension, custom thread pools, and more.
+  * [Executor.asCoroutineDispatcher][asCoroutineDispatcher] extension, custom thread pools, and more.
 * [core/js](kotlinx-coroutines-core/js/) &mdash; additional core features available on Kotlin/JS:
   * Integration with `Promise` via [Promise.await] and [promise] builder;
   * Integration with `Window` via [Window.asCoroutineDispatcher], etc.
@@ -197,25 +197,17 @@ Kotlin/JS version of `kotlinx.coroutines` is published as
 
 #### Native
 
-[Kotlin/Native](https://kotlinlang.org/docs/reference/native-overview.html) version of `kotlinx.coroutines` is published as 
-[`kotlinx-coroutines-core`](https://search.maven.org/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core/1.4.2/jar)
-(follow the link to get the dependency declaration snippet). **Kotlin/Native requires Gradle version 6.0 or later**
-to resolve that dependency properly into the corresponding platform-specific artifacts.
+Kotlin/Native version of `kotlinx.coroutines` is published as 
+[`kotlinx-coroutines-core-$platform`](https://mvnrepository.com/search?q=kotlinx-coroutines-core-) where `$platform` is 
+the target Kotlin/Native platform. [List of currently supported targets](https://github.com/Kotlin/kotlinx.coroutines/blob/master/gradle/compile-native-multiplatform.gradle#L16).
 
-Kotlin/Native does not generally provide binary compatibility between versions. 
-You should use the same version of Kotlin/Native compiler as was used to build `kotlinx.coroutines`.
 
-Kotlin/Native does not support free sharing of mutable objects between threads as on JVM, so several 
-limitations apply to using coroutines on Kotlin/Native. 
-See [Sharing and background threads on Kotlin/Native](kotlin-native-sharing.md) for details.
+Only single-threaded code (JS-style) on Kotlin/Native is supported in stable versions.
+Additionally, a special `-native-mt` version is released on a regular basis, for the state of multi-threaded coroutines support
+please follow the [corresponding issue](https://github.com/Kotlin/kotlinx.coroutines/issues/462) for the additional details.
 
-Some functions like [newSingleThreadContext] and [runBlocking] are available only for Kotlin/JVM and Kotlin/Native 
-and are not available on Kotlin/JS. In order to access them from the code that is shared between JVM and Native 
-you need to enable granular metadata (aka HMPP) in your `gradle.properties` file:
-
-```properties
-kotlin.mpp.enableGranularSourceSetsMetadata=true
-``` 
+Since Kotlin/Native does not generally provide binary compatibility between versions, 
+you should use the same version of the Kotlin/Native compiler as was used to build `kotlinx.coroutines`. 
 
 ## Building and Contributing
 
@@ -241,12 +233,11 @@ See [Contributing Guidelines](CONTRIBUTING.md).
 [SupervisorJob()]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-supervisor-job.html
 [CoroutineExceptionHandler]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-exception-handler/index.html
 [Dispatchers.IO]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-dispatchers/-i-o.html
-[Executor.asCoroutineDispatcher]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/java.util.concurrent.-executor/as-coroutine-dispatcher.html
-[Promise.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/kotlin.js.-promise/await.html
+[asCoroutineDispatcher]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/as-coroutine-dispatcher.html
+[Promise.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/await.html
 [promise]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/promise.html
-[Window.asCoroutineDispatcher]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/org.w3c.dom.-window/as-coroutine-dispatcher.html
-[newSingleThreadContext]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/new-single-thread-context.html
-[runBlocking]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-blocking.html
+[Window.asCoroutineDispatcher]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/as-coroutine-dispatcher.html
+
 <!--- INDEX kotlinx.coroutines.flow -->
 
 [Flow]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-flow/index.html
@@ -270,7 +261,7 @@ See [Contributing Guidelines](CONTRIBUTING.md).
 <!--- MODULE kotlinx-coroutines-test -->
 <!--- INDEX kotlinx.coroutines.test -->
 
-[Dispatchers.setMain]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-test/kotlinx.coroutines.test/kotlinx.coroutines.-dispatchers/set-main.html
+[Dispatchers.setMain]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-test/kotlinx.coroutines.test/set-main.html
 [TestCoroutineScope]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-test/kotlinx.coroutines.test/-test-coroutine-scope/index.html
 
 <!--- MODULE kotlinx-coroutines-debug -->
@@ -290,23 +281,23 @@ See [Contributing Guidelines](CONTRIBUTING.md).
 <!--- MODULE kotlinx-coroutines-jdk8 -->
 <!--- INDEX kotlinx.coroutines.future -->
 
-[CompletionStage.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-jdk8/kotlinx.coroutines.future/java.util.concurrent.-completion-stage/await.html
+[CompletionStage.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-jdk8/kotlinx.coroutines.future/await.html
 
 <!--- MODULE kotlinx-coroutines-guava -->
 <!--- INDEX kotlinx.coroutines.guava -->
 
-[ListenableFuture.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-guava/kotlinx.coroutines.guava/com.google.common.util.concurrent.-listenable-future/await.html
+[ListenableFuture.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-guava/kotlinx.coroutines.guava/await.html
 
 <!--- MODULE kotlinx-coroutines-play-services -->
 <!--- INDEX kotlinx.coroutines.tasks -->
 
-[Task.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-play-services/kotlinx.coroutines.tasks/com.google.android.gms.tasks.-task/await.html
+[Task.await]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-play-services/kotlinx.coroutines.tasks/await.html
 
 <!--- MODULE kotlinx-coroutines-reactive -->
 <!--- INDEX kotlinx.coroutines.reactive -->
 
-[Publisher.collect]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-reactive/kotlinx.coroutines.reactive/org.reactivestreams.-publisher/collect.html
-[Publisher.awaitSingle]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-reactive/kotlinx.coroutines.reactive/org.reactivestreams.-publisher/await-single.html
+[Publisher.collect]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-reactive/kotlinx.coroutines.reactive/collect.html
+[Publisher.awaitSingle]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-reactive/kotlinx.coroutines.reactive/await-single.html
 [kotlinx.coroutines.reactive.publish]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-reactive/kotlinx.coroutines.reactive/publish.html
 
 <!--- MODULE kotlinx-coroutines-rx2 -->
