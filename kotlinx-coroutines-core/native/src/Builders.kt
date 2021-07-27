@@ -62,7 +62,6 @@ private class BlockingCoroutine<T>(
             worker.execute(TransferMode.SAFE, {}) {} // send an empty task
     }
 
-    @Suppress("UNCHECKED_CAST")
     fun joinBlocking(eventLoop: EventLoop?): T {
         runEventLoop(eventLoop) { isCompleted }
         // now return result
