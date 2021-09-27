@@ -16,7 +16,7 @@ class DelayDurationTest : TestBase() {
 
     @Test
     fun testCancellation() = runTest(expected = { it is CancellationException }) {
-        runAndCancel(1.seconds)
+        runAndCancel(Duration.seconds(1))
     }
 
     @Test
@@ -28,7 +28,7 @@ class DelayDurationTest : TestBase() {
     fun testRegularDelay() = runTest {
         val deferred = async {
             expect(2)
-            delay(1.seconds)
+            delay(Duration.seconds(1))
             expect(4)
         }
 
@@ -43,7 +43,7 @@ class DelayDurationTest : TestBase() {
     fun testNanoDelay() = runTest {
         val deferred = async {
             expect(2)
-            delay(1.nanoseconds)
+            delay(Duration.nanoseconds(1))
             expect(4)
         }
 
