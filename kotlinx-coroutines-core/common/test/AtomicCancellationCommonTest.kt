@@ -119,7 +119,6 @@ class AtomicCancellationCommonTest : TestBase() {
     }
 
     @Test
-    @Ignore
     fun testLockCancellable() = runTest {
         expect(1)
         val mutex = Mutex(true) // locked mutex
