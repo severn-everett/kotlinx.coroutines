@@ -5,9 +5,6 @@
 package kotlinx.coroutines.selects
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.internal.*
-import kotlinx.coroutines.internal.ScopeCoroutine
-import kotlinx.coroutines.intrinsics.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 

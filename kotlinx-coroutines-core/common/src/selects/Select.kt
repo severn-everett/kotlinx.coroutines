@@ -1,7 +1,6 @@
 /*
  * Copyright 2016-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
-@file:OptIn(ExperimentalContracts::class)
 
 package kotlinx.coroutines.selects
 
@@ -11,6 +10,7 @@ import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.internal.*
 import kotlin.contracts.*
 import kotlin.coroutines.*
+import kotlin.jvm.*
 import kotlin.native.concurrent.*
 
 /**
@@ -49,6 +49,7 @@ import kotlin.native.concurrent.*
  * Note that this function does not check for cancellation when it is not suspended.
  * Use [yield] or [CoroutineScope.isActive] to periodically check for cancellation in tight loops if needed.
  */
+@OptIn(ExperimentalContracts::class)
 public suspend inline fun <R> select(crossinline builder: SelectBuilder<R>.() -> Unit): R {
     contract {
         callsInPlace(builder, InvocationKind.EXACTLY_ONCE)
@@ -173,7 +174,7 @@ public class SelectClause2Impl<P, Q>(
 /**
  * Internal representation of select instance.
  *
- * @suppress **This is unstable API and it is subject to change.**
+ * @suppress **This is unstable API, and it is subject to change.**
  */
 @InternalCoroutinesApi // todo: sealed interface https://youtrack.jetbrains.com/issue/KT-22286
 public interface SelectInstance<in R> {
@@ -332,25 +333,15 @@ internal open class SelectImplementation<R> constructor(
     // = CLAUSES REGISTRATION =
     // ========================
 
-    override fun SelectClause0.invoke(block: suspend () -> R) = register(block)
-    override fun <P, Q> SelectClause2<P, Q>.invoke(param: P, block: suspend (Q) -> R) = register(param, block)
-    override fun <Q> SelectClause1<Q>.invoke(block: suspend (Q) -> R) = register(block)
-
-    protected fun SelectClause0.register(block: suspend () -> R) {
-        val clause = ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_0, block)
-        registerClause(clause)
-    }
-    protected fun <Q> SelectClause1<Q>.register(block: suspend (Q) -> R) {
-        val clause = ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_1, block)
-        registerClause(clause)
-    }
-    protected fun <P, Q> SelectClause2<P, Q>.register(param: P, block: suspend (Q) -> R) {
-        val clause = ClauseData<R>(clauseObject, regFunc, processResFunc, param, block)
-        registerClause(clause)
-    }
+    override fun SelectClause0.invoke(block: suspend () -> R) =
+        ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_0, block).register()
+    override fun <Q> SelectClause1<Q>.invoke(block: suspend (Q) -> R) =
+        ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_1, block).register()
+    override fun <P, Q> SelectClause2<P, Q>.invoke(param: P, block: suspend (Q) -> R) =
+        ClauseData<R>(clauseObject, regFunc, processResFunc, param, block).register()
 
     /**
-     * Attempts to register the specified `select` [clause].
+     * Attempts to register this `select` clause.
      * If another clause is already selected, this function
      * does nothing.
      * Otherwise, it registers this `select` instance in
@@ -363,27 +354,27 @@ internal open class SelectImplementation<R> constructor(
      * In case of registration failure, the internal result
      * (not processed by [ProcessResultFunction] yet) must be
      * provided via [selectInRegistrationPhase] -- the algorithm
-     * updates the state to the specified [clause].
+     * updates the state to this clause reference.
      */
-    private fun registerClause(clause: ClauseData<R>, reregister: Boolean = false) {
+    protected fun ClauseData<R>.register(reregister: Boolean = false) {
         // Is there already selected clause?
         if (state.value is ClauseData<*>) return
         // For new clauses, check that there does not exist
         // another clause with the same object.
-        if (!reregister) checkClauseObject(clause.clauseObject)
+        if (!reregister) checkClauseObject(clauseObject)
         // Try to register in the corresponding object.
-        if (clause.tryRegister(this@SelectImplementation)) {
+        if (tryRegister(this@SelectImplementation)) {
             // Successfully registered, and this `select` instance
             // is stored as a waiter. Add this clause to the list
             // of registered clauses and store the provided via
             // [invokeOnCompletion] completion action into the clause.
-            if (!reregister) clauses!! += clause // TODO: comment
-            clause.onCompleteAction = onCompleteAction
-            onCompleteAction = null
+            if (!reregister) clauses!! += this // TODO: comment
+            onCompleteAction = this@SelectImplementation.onCompleteAction
+            this@SelectImplementation.onCompleteAction = null
         } else {
             // This clause has been selected!
             // Update the state correspondingly.
-            state.value = clause
+            state.value = this
         }
     }
 
@@ -427,6 +418,7 @@ internal open class SelectImplementation<R> constructor(
                 // This `select` is in REGISTRATION phase, but there are clauses that has to be registered again.
                 // Perform the required registrations and try again.
                 curState is List<*> -> if (state.compareAndSet(curState, STATE_REG)) {
+                    @Suppress("UNCHECKED_CAST")
                     curState as List<Any>
                     curState.forEach { reregisterClause(it) }
                 }
@@ -446,7 +438,7 @@ internal open class SelectImplementation<R> constructor(
     private fun reregisterClause(clauseObject: Any) {
         val clause = findClause(clauseObject)!!
         clause.onCompleteAction = null
-        registerClause(clause, reregister = true)
+        clause.register(reregister = true)
     }
 
     // ==============
@@ -485,6 +477,7 @@ internal open class SelectImplementation<R> constructor(
                 // Perform a rendezvous with this select if it is in WAITING state.
                 is CancellableContinuation<*> -> {
                     if (clause == null) clause = findClause(clauseObject) ?: return null
+                    @Suppress("UNCHECKED_CAST")
                     if (state.compareAndSet(curState, clause)) return curState as CancellableContinuation<Unit>
                 }
                 // Already selected on the `curState` clause.
@@ -521,6 +514,7 @@ internal open class SelectImplementation<R> constructor(
     private suspend fun complete(): R {
         assert { isSelected }
         // Get the selected clause.
+        @Suppress("UNCHECKED_CAST")
         val selectedClause = state.value as ClauseData<R>
         // Process the internal result.
         val blockArgument = selectedClause.processResult(result)
@@ -553,13 +547,13 @@ internal open class SelectImplementation<R> constructor(
     /**
      * Each `select` clause is internally represented with a [ClauseData] instance.
       */
-    private class ClauseData<R>(
-        val clauseObject: Any, // the object of this `select` clause: Channel, Mutex, Job, ...
-        val regFunc: RegistrationFunction,
-        val processResFunc: ProcessResultFunction,
-        val param: Any?,
-        val block: Any,
-        var onCompleteAction: OnCompleteAction? = null
+    protected class ClauseData<R>(
+        @JvmField val clauseObject: Any, // the object of this `select` clause: Channel, Mutex, Job, ...
+        private val regFunc: RegistrationFunction,
+        private val processResFunc: ProcessResultFunction,
+        private val param: Any?,
+        private val block: Any,
+        @JvmField var onCompleteAction: OnCompleteAction? = null
     ) {
         /**
          * Try to register the specified `select` instance in [clauseObject].
@@ -596,6 +590,7 @@ internal open class SelectImplementation<R> constructor(
          * Invokes the user-specified block and returns
          * the final result of this `select` clause.
          */
+        @Suppress("UNCHECKED_CAST")
         suspend fun invokeBlock(argument: Any?): R {
             val block = block
             // We distinguish no-argument and 1-argument
@@ -635,6 +630,6 @@ private val NO_RESULT = Symbol("NO_RESULT")
 // We use this marker parameter objects to distinguish
 // SelectClause[0,1,2] and invoke the `block` correctly.
 @SharedImmutable
-private val PARAM_CLAUSE_0 = Symbol("PARAM_CLAUSE_0")
+internal val PARAM_CLAUSE_0 = Symbol("PARAM_CLAUSE_0")
 @SharedImmutable
-private val PARAM_CLAUSE_1 = Symbol("PARAM_CLAUSE_1")
+internal val PARAM_CLAUSE_1 = Symbol("PARAM_CLAUSE_1")
