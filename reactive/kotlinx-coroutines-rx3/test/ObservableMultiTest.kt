@@ -7,7 +7,6 @@ package kotlinx.coroutines.rx3
 import io.reactivex.rxjava3.core.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.*
-import org.junit.Ignore
 import org.junit.Test
 import java.io.*
 import kotlin.test.*

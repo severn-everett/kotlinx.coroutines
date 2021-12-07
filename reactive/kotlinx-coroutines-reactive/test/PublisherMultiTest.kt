@@ -6,7 +6,6 @@ package kotlinx.coroutines.reactive
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.*
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.*
 
