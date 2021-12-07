@@ -10,7 +10,6 @@ import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.*
 
-@Ignore // fix me!
 class PublisherMultiTest : TestBase() {
     @Test
     fun testConcurrentStress() = runBlocking {

@@ -387,8 +387,14 @@ internal abstract class AbstractSendChannel<E>(
         get() = SelectClause2Impl<E, SendChannel<E>>(
             clauseObject = this,
             regFunc = AbstractSendChannel<*>::registerSelectForSend as RegistrationFunction,
-            processResFunc = AbstractSendChannel<*>::processResultSelectSend as ProcessResultFunction
+            processResFunc = AbstractSendChannel<*>::processResultSelectSend as ProcessResultFunction,
+            onCancellationConstructor = onUndeliveredElementCancellationConstructor
         )
+    protected val onUndeliveredElementCancellationConstructor = onUndeliveredElement?.let {
+        { element: Any? ->
+            { cause: Throwable -> it(element as E) }
+        }
+    }
 
     private fun registerSelectForSend(select: SelectInstance<*>, element: Any?) {
         element as E
@@ -692,14 +698,16 @@ internal abstract class AbstractChannel<E>(
         get() = SelectClause1Impl<E>(
             clauseObject = this,
             regFunc = AbstractChannel<*>::registerSelectForReceive as RegistrationFunction,
-            processResFunc = AbstractChannel<*>::processResultSelectReceive as ProcessResultFunction
+            processResFunc = AbstractChannel<*>::processResultSelectReceive as ProcessResultFunction,
+            onCancellationConstructor = onUndeliveredElementCancellationConstructor
         )
 
     final override val onReceiveCatching
         get() = SelectClause1Impl<ChannelResult<E>>(
             clauseObject = this,
             regFunc = AbstractChannel<*>::registerSelectForReceive as RegistrationFunction,
-            processResFunc = AbstractChannel<*>::processResultSelectReceiveCatching as ProcessResultFunction
+            processResFunc = AbstractChannel<*>::processResultSelectReceiveCatching as ProcessResultFunction,
+            onUndeliveredElementCancellationConstructor
         )
 
     private fun registerSelectForReceive(select: SelectInstance<*>, ignoredParam: Any?) {

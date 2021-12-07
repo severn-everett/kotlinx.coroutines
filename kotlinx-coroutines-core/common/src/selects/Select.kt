@@ -118,10 +118,12 @@ public sealed interface SelectClause {
     public val clauseObject: Any
     public val regFunc: RegistrationFunction
     public val processResFunc: ProcessResultFunction
+    public val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)?
 }
 
 /**
- *
+ * The registration function specifies how the `select` instance should be registered into
+ * the specified clause object.
  */
 @InternalCoroutinesApi
 public typealias RegistrationFunction = (clauseObject: Any, select: SelectInstance<*>, param: Any?) -> Unit
@@ -140,7 +142,8 @@ public interface SelectClause0 : SelectClause
 @InternalCoroutinesApi
 public class SelectClause0Impl(
     override val clauseObject: Any,
-    override val regFunc: RegistrationFunction
+    override val regFunc: RegistrationFunction,
+    override val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)? = null
 ) : SelectClause0 {
     override val processResFunc: ProcessResultFunction = DUMMY_PROCESS_RESULT_FUNCTION
 }
@@ -156,7 +159,8 @@ public interface SelectClause1<out Q> : SelectClause
 public class SelectClause1Impl<Q>(
     override val clauseObject: Any,
     override val regFunc: RegistrationFunction,
-    override val processResFunc: ProcessResultFunction
+    override val processResFunc: ProcessResultFunction,
+    override val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)? = null
 ) : SelectClause1<Q>
 
 /**
@@ -168,7 +172,8 @@ public interface SelectClause2<in P, out Q> : SelectClause
 public class SelectClause2Impl<P, Q>(
     override val clauseObject: Any,
     override val regFunc: RegistrationFunction,
-    override val processResFunc: ProcessResultFunction
+    override val processResFunc: ProcessResultFunction,
+    override val onCancellationConstructor: ((param: Any?) -> ((Throwable) -> Unit))? = null
 ) : SelectClause2<P, Q>
 
 /**
@@ -334,11 +339,11 @@ internal open class SelectImplementation<R> constructor(
     // ========================
 
     override fun SelectClause0.invoke(block: suspend () -> R) =
-        ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_0, block).register()
+        ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_0, block, onCancellationConstructor).register()
     override fun <Q> SelectClause1<Q>.invoke(block: suspend (Q) -> R) =
-        ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_1, block).register()
+        ClauseData<R>(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_1, block, onCancellationConstructor).register()
     override fun <P, Q> SelectClause2<P, Q>.invoke(param: P, block: suspend (Q) -> R) =
-        ClauseData<R>(clauseObject, regFunc, processResFunc, param, block).register()
+        ClauseData<R>(clauseObject, regFunc, processResFunc, param, block, onCancellationConstructor).register()
 
     /**
      * Attempts to register this `select` clause.
@@ -406,6 +411,7 @@ internal open class SelectImplementation<R> constructor(
      * this function performs registration of such clauses. After that, it atomically stores
      * the continuation into the [state] field if there is no more clause to be re-registered.
      */
+    @OptIn(ExperimentalStdlibApi::class)
     private suspend fun waitUntilSelected() = suspendCancellableCoroutineReusable<Unit> sc@ { cont ->
         // Perform a clean-up in case of cancellation.
         cont.invokeOnCancellation(this.asHandler)
@@ -414,7 +420,9 @@ internal open class SelectImplementation<R> constructor(
             when {
                 // This `select` is in REGISTRATION phase, and there is no clause to be re-registered.
                 // Perform a transition to WAITING phase by storing the current continuation.
-                curState === STATE_REG -> if (state.compareAndSet(curState, cont)) return@sc
+                curState === STATE_REG -> if (state.compareAndSet(curState, cont)) {
+                    return@sc
+                }
                 // This `select` is in REGISTRATION phase, but there are clauses that has to be registered again.
                 // Perform the required registrations and try again.
                 curState is List<*> -> if (state.compareAndSet(curState, STATE_REG)) {
@@ -424,7 +432,7 @@ internal open class SelectImplementation<R> constructor(
                 }
                 // This `select` operation became completed during clauses re-registration.
                 curState is ClauseData<*> -> {
-                    cont.resume(Unit)
+                    cont.resume(Unit, curState.onCancellationConstructor?.invoke(result))
                     return@sc
                 }
                 // This `select` cannot be in any other state.
@@ -553,6 +561,7 @@ internal open class SelectImplementation<R> constructor(
         private val processResFunc: ProcessResultFunction,
         private val param: Any?,
         private val block: Any,
+        @JvmField val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)?,
         @JvmField var onCompleteAction: OnCompleteAction? = null
     ) {
         /**
@@ -619,6 +628,10 @@ private fun CancellableContinuation<Unit>.tryResume(onCancellation: ((cause: Thr
 }
 
 // Markers for REGISTRATION and COMPLETED states.
+@SharedImmutable
+private val STATE_SUSPENDING = Symbol("STATE_SUSPENDING")
+@SharedImmutable
+private val STATE_RESUMING = Symbol("STATE_RESUMING")
 @SharedImmutable
 private val STATE_REG = Symbol("STATE_REG")
 @SharedImmutable

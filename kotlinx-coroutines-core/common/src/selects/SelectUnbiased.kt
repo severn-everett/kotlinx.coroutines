@@ -41,15 +41,15 @@ internal open class UnbiasedSelectImplementation<R>(context: CoroutineContext) :
     private val clausesToRegister: MutableList<ClauseData<R>> = arrayListOf()
 
     override fun SelectClause0.invoke(block: suspend () -> R) {
-        clausesToRegister += ClauseData(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_0, block)
+        clausesToRegister += ClauseData(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_0, block, onCancellationConstructor)
     }
 
     override fun <Q> SelectClause1<Q>.invoke(block: suspend (Q) -> R) {
-        clausesToRegister += ClauseData(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_1, block)
+        clausesToRegister += ClauseData(clauseObject, regFunc, processResFunc, PARAM_CLAUSE_1, block, onCancellationConstructor)
     }
 
     override fun <P, Q> SelectClause2<P, Q>.invoke(param: P, block: suspend (Q) -> R) {
-        clausesToRegister += ClauseData(clauseObject, regFunc, processResFunc, param, block)
+        clausesToRegister += ClauseData(clauseObject, regFunc, processResFunc, param, block, onCancellationConstructor)
     }
 
     @PublishedApi

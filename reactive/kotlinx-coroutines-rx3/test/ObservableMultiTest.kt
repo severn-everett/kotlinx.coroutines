@@ -15,7 +15,6 @@ import kotlin.test.*
 /**
  * Test emitting multiple values with [rxObservable].
  */
-@Ignore
 class ObservableMultiTest : TestBase() {
     @Test
     fun testNumbers() {
