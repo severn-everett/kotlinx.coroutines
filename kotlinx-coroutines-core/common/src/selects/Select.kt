@@ -629,10 +629,6 @@ private fun CancellableContinuation<Unit>.tryResume(onCancellation: ((cause: Thr
 
 // Markers for REGISTRATION and COMPLETED states.
 @SharedImmutable
-private val STATE_SUSPENDING = Symbol("STATE_SUSPENDING")
-@SharedImmutable
-private val STATE_RESUMING = Symbol("STATE_RESUMING")
-@SharedImmutable
 private val STATE_REG = Symbol("STATE_REG")
 @SharedImmutable
 private val STATE_COMPLETED = Symbol("STATE_COMPLETED")
