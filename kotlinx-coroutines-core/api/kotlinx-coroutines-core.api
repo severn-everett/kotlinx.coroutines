@@ -1204,6 +1204,7 @@ public final class kotlinx/coroutines/selects/SelectBuilderImpl : kotlinx/corout
 
 public abstract interface class kotlinx/coroutines/selects/SelectClause {
 	public abstract fun getClauseObject ()Ljava/lang/Object;
+	public abstract fun getOnCancellationConstructor ()Lkotlin/jvm/functions/Function1;
 	public abstract fun getProcessResFunc ()Lkotlin/jvm/functions/Function3;
 	public abstract fun getRegFunc ()Lkotlin/jvm/functions/Function3;
 }
@@ -1212,8 +1213,10 @@ public abstract interface class kotlinx/coroutines/selects/SelectClause0 : kotli
 }
 
 public final class kotlinx/coroutines/selects/SelectClause0Impl : kotlinx/coroutines/selects/SelectClause0 {
-	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;)V
+	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun getClauseObject ()Ljava/lang/Object;
+	public fun getOnCancellationConstructor ()Lkotlin/jvm/functions/Function1;
 	public fun getProcessResFunc ()Lkotlin/jvm/functions/Function3;
 	public fun getRegFunc ()Lkotlin/jvm/functions/Function3;
 }
@@ -1222,8 +1225,10 @@ public abstract interface class kotlinx/coroutines/selects/SelectClause1 : kotli
 }
 
 public final class kotlinx/coroutines/selects/SelectClause1Impl : kotlinx/coroutines/selects/SelectClause1 {
-	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;)V
+	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun getClauseObject ()Ljava/lang/Object;
+	public fun getOnCancellationConstructor ()Lkotlin/jvm/functions/Function1;
 	public fun getProcessResFunc ()Lkotlin/jvm/functions/Function3;
 	public fun getRegFunc ()Lkotlin/jvm/functions/Function3;
 }
@@ -1232,8 +1237,10 @@ public abstract interface class kotlinx/coroutines/selects/SelectClause2 : kotli
 }
 
 public final class kotlinx/coroutines/selects/SelectClause2Impl : kotlinx/coroutines/selects/SelectClause2 {
-	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;)V
+	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun getClauseObject ()Ljava/lang/Object;
+	public fun getOnCancellationConstructor ()Lkotlin/jvm/functions/Function1;
 	public fun getProcessResFunc ()Lkotlin/jvm/functions/Function3;
 	public fun getRegFunc ()Lkotlin/jvm/functions/Function3;
 }
@@ -1258,9 +1265,10 @@ public class kotlinx/coroutines/selects/SelectImplementation : kotlinx/coroutine
 
 protected final class kotlinx/coroutines/selects/SelectImplementation$ClauseData {
 	public final field clauseObject Ljava/lang/Object;
+	public final field onCancellationConstructor Lkotlin/jvm/functions/Function1;
 	public field onCompleteAction Lkotlin/jvm/functions/Function0;
-	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function0;)V
-	public synthetic fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)V
+	public synthetic fun <init> (Ljava/lang/Object;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun invokeBlock (Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun processResult (Ljava/lang/Object;)Ljava/lang/Object;
 	public final fun tryRegister (Lkotlinx/coroutines/selects/SelectImplementation;)Z
