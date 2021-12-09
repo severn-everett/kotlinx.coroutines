@@ -88,10 +88,14 @@ private class RxObservableCoroutine<T : Any>(
 
     override val onSend: SelectClause2<T, SendChannel<T>>
         get() = SelectClause2Impl(
-            mutex,
-            mutex.onLock.regFunc,
+            this,
+            RxObservableCoroutine<*>::onSendSelectRegFunction as RegistrationFunction,
             RxObservableCoroutine<*>::onSendSelectProcessResult as ProcessResultFunction
         )
+
+    private fun onSendSelectRegFunction(select: SelectInstance<*>, element: Any?) {
+        mutex.onLock.regFunc(mutex, select, null)
+    }
 
     private fun onSendSelectProcessResult(element: Any?, clauseResult: Any?): Any? {
         mutex.onLock.processResFunc.invoke(mutex, element, clauseResult)
