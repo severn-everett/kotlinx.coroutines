@@ -118,7 +118,7 @@ public sealed interface SelectClause {
     public val clauseObject: Any
     public val regFunc: RegistrationFunction
     public val processResFunc: ProcessResultFunction
-    public val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)?
+    public val onCancellationConstructor: OnCancellationConstructor?
 }
 
 /**
@@ -135,6 +135,11 @@ public typealias RegistrationFunction = (clauseObject: Any, select: SelectInstan
 public typealias ProcessResultFunction = (clauseObject: Any, param: Any?, clauseResult: Any?) -> Any?
 
 /**
+ *
+ */
+public typealias OnCancellationConstructor = (select: SelectInstance<*>, param: Any?, internalResult: Any?) -> (Throwable) -> Unit
+
+/**
  * Clause for [select] expression without additional parameters that does not select any value.
  */
 public interface SelectClause0 : SelectClause
@@ -143,7 +148,7 @@ public interface SelectClause0 : SelectClause
 public class SelectClause0Impl(
     override val clauseObject: Any,
     override val regFunc: RegistrationFunction,
-    override val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)? = null
+    override val onCancellationConstructor: OnCancellationConstructor? = null
 ) : SelectClause0 {
     override val processResFunc: ProcessResultFunction = DUMMY_PROCESS_RESULT_FUNCTION
 }
@@ -160,7 +165,7 @@ public class SelectClause1Impl<Q>(
     override val clauseObject: Any,
     override val regFunc: RegistrationFunction,
     override val processResFunc: ProcessResultFunction,
-    override val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)? = null
+    override val onCancellationConstructor: OnCancellationConstructor? = null
 ) : SelectClause1<Q>
 
 /**
@@ -173,7 +178,7 @@ public class SelectClause2Impl<P, Q>(
     override val clauseObject: Any,
     override val regFunc: RegistrationFunction,
     override val processResFunc: ProcessResultFunction,
-    override val onCancellationConstructor: ((param: Any?) -> ((Throwable) -> Unit))? = null
+    override val onCancellationConstructor: OnCancellationConstructor? = null
 ) : SelectClause2<P, Q>
 
 /**
@@ -206,7 +211,7 @@ public interface SelectInstance<in R> {
      * (which is further passed to the clause's [ProcessResultFunction]) should be provided
      * via this function. After that, other clause registrations are ignored.
      */
-    public fun selectInRegistrationPhase(selectResult: Any?)
+    public fun selectInRegistrationPhase(internalResult: Any?)
 }
 
 @InternalCoroutinesApi
@@ -303,12 +308,12 @@ internal open class SelectImplementation<R> constructor(
      *
      * Unfortunately, we cannot store the result in the [state] field, as the latter stores
      * the clause object upon selection (see [ClauseData.clauseObject] and [SelectClause.clauseObject]).
-     * Instead, it is possible to merge the [result] and [onCompleteAction] fields into
+     * Instead, it is possible to merge the [internalResult] and [onCompleteAction] fields into
      * one that stores either result when the clause is successfully registered ([inRegistrationPhase] is `true`),
      * or [OnCompleteAction] instance when the clause is completed during registration ([inRegistrationPhase] is `false`).
      * Yet, this optimization is omitted for code simplicity.
      */
-    private var result: Any? = NO_RESULT
+    private var internalResult: Any? = NO_RESULT
 
     /**
      * This function is called after [SelectBuilder] is applied. In case one of the clauses is already selected,
@@ -396,8 +401,8 @@ internal open class SelectImplementation<R> constructor(
         this.onCompleteAction = onCompleteAction
     }
 
-    override fun selectInRegistrationPhase(selectResult: Any?) {
-        this.result = selectResult
+    override fun selectInRegistrationPhase(internalResult: Any?) {
+        this.internalResult = internalResult
     }
 
     // =========================
@@ -420,9 +425,7 @@ internal open class SelectImplementation<R> constructor(
             when {
                 // This `select` is in REGISTRATION phase, and there is no clause to be re-registered.
                 // Perform a transition to WAITING phase by storing the current continuation.
-                curState === STATE_REG -> if (state.compareAndSet(curState, cont)) {
-                    return@sc
-                }
+                curState === STATE_REG -> if (state.compareAndSet(curState, cont)) return@sc
                 // This `select` is in REGISTRATION phase, but there are clauses that has to be registered again.
                 // Perform the required registrations and try again.
                 curState is List<*> -> if (state.compareAndSet(curState, STATE_REG)) {
@@ -432,7 +435,8 @@ internal open class SelectImplementation<R> constructor(
                 }
                 // This `select` operation became completed during clauses re-registration.
                 curState is ClauseData<*> -> {
-                    cont.resume(Unit, curState.onCancellationConstructor?.invoke(result))
+                    cont.resume(Unit, curState.createOnCancellationAction(this, internalResult))
+//                    cont.resume(Unit)
                     return@sc
                 }
                 // This `select` cannot be in any other state.
@@ -453,17 +457,53 @@ internal open class SelectImplementation<R> constructor(
     // = RENDEZVOUS =
     // ==============
 
-    override fun trySelect(clauseObject: Any, result: Any?, onCancellation: ((Throwable) -> Unit)?): Boolean {
-        // Try to select this clause.
-        val cont = trySelectClause(clauseObject) ?: return false
-        // Success! Store the resumption value and
-        // try to resume the continuation.
-        this.result = result
-        val success = cont.tryResume(onCancellation)
-        // If the resumption failed, we need to clean
-        // the [result] field to avoid memory leaks.
-        if (!success) this.result = null
-        return success
+    override fun trySelect(clauseObject: Any, result: Any?, onCancellation: ((Throwable) -> Unit)?): Boolean =
+        trySelectDetailed(clauseObject, result, onCancellation) == 3
+
+    // 0 -- cancelled
+    // 1 -- selected
+    // 2 -- reregister
+    // 3 -- success
+    public fun trySelectDetailed(clauseObject: Any, result: Any?, onCancellation: ((Throwable) -> Unit)? = null): Int {
+        /**
+         * Tries to select the specified clause and returns the suspended coroutine on success.
+         * On failure, when another clause is already selected or this `select` operation is cancelled,
+         * this function returns `null`.
+         */
+        while (true) {
+            when (val curState = state.value) {
+                // Perform a rendezvous with this select if it is in WAITING state.
+                is CancellableContinuation<*> -> {
+                    val clause = findClause(clauseObject) ?: continue
+                    @Suppress("UNCHECKED_CAST")
+                    if (state.compareAndSet(curState, clause)) {
+                        val cont = curState as CancellableContinuation<Unit>
+                        // Success! Store the resumption value and
+                        // try to resume the continuation.
+                        this.internalResult = result
+                        if (cont.tryResume(onCancellation)) return 3
+                        // If the resumption failed, we need to clean
+                        // the [result] field to avoid memory leaks.
+                        this.internalResult = null
+                        return 0
+                    }
+                }
+                // Already selected on the `curState` clause.
+                is ClauseData<*> -> return 1
+                // Already selected and completed, or cancelled.
+                STATE_COMPLETED -> return 1
+                // This select is still in REGISTRATION phase, re-register the clause
+                // in order not to wait until this select moves to WAITING phase.
+                // This is a rare race, so we do not need to worry about performance here.
+                STATE_REG -> if (state.compareAndSet(curState, listOf(clauseObject))) return 2
+                // This select is still in REGISTRATION phase, and the state stores a list of clauses
+                // for re-registration, add the selecting clause to this list.
+                // This is a rare race, so we do not need to worry about performance here.
+                is List<*> -> if (state.compareAndSet(curState, curState + clauseObject)) return 2
+                // Another state? Something went really wrong.
+                else -> error("Unexpected state: $curState")
+            }
+        }
     }
 
     /**
@@ -471,39 +511,6 @@ internal open class SelectImplementation<R> constructor(
      */
     private fun findClause(clauseObject: Any) = clauses?.run {
         find { it.clauseObject === clauseObject } ?: error("Clause with object $clauseObject is not found")
-    }
-
-    /**
-     * Tries to select the specified clause and returns the suspended coroutine on success.
-     * On failure, when another clause is already selected or this `select` operation is cancelled,
-     * this function returns `null`.
-     */
-    private fun trySelectClause(clauseObject: Any): CancellableContinuation<Unit>? {
-        var clause: ClauseData<R>? = null
-        while (true) {
-            when (val curState = state.value) {
-                // Perform a rendezvous with this select if it is in WAITING state.
-                is CancellableContinuation<*> -> {
-                    if (clause == null) clause = findClause(clauseObject) ?: return null
-                    @Suppress("UNCHECKED_CAST")
-                    if (state.compareAndSet(curState, clause)) return curState as CancellableContinuation<Unit>
-                }
-                // Already selected on the `curState` clause.
-                is ClauseData<*> -> return null
-                // Already selected and completed, or cancelled.
-                STATE_COMPLETED -> return null
-                // This select is still in REGISTRATION phase, re-register the clause
-                // in order not to wait until this select moves to WAITING phase.
-                // This is a rare race, so we do not need to worry about performance here.
-                STATE_REG -> if (state.compareAndSet(curState, listOf(clauseObject))) return null
-                // This select is still in REGISTRATION phase, and the state stores a list of clauses
-                // for re-registration, add the selecting clause to this list.
-                // This is a rare race, so we do not need to worry about performance here.
-                is List<*> -> if (state.compareAndSet(curState, curState + clauseObject)) return null
-                // Another state? Something went really wrong.
-                else -> error("Unexpected state: $curState")
-            }
-        }
     }
 
     // ==============
@@ -525,7 +532,7 @@ internal open class SelectImplementation<R> constructor(
         @Suppress("UNCHECKED_CAST")
         val selectedClause = state.value as ClauseData<R>
         // Process the internal result.
-        val blockArgument = selectedClause.processResult(result)
+        val blockArgument = selectedClause.processResult(internalResult)
         // Perform the clean-up before the user-specified block
         // invocation to guarantee the absence of memory leaks.
         cleanup(selectedClause)
@@ -541,6 +548,7 @@ internal open class SelectImplementation<R> constructor(
      * memory leaks.
      */
     private fun cleanup(selectedClause: ClauseData<R>? = null) {
+        val selectedClause: ClauseData<R>? = selectedClause ?: (this.state.value as? ClauseData<R>)
         // Invoke all cancellation handlers except for the
         // one related to the selected clause, if specified.
         clauses!!.forEach { clause ->
@@ -548,7 +556,7 @@ internal open class SelectImplementation<R> constructor(
         }
         // Clear all the remaining data to avoid memory leaks.
         clauses = null
-        result = null
+        internalResult = null
         state.value = STATE_COMPLETED
     }
 
@@ -561,7 +569,7 @@ internal open class SelectImplementation<R> constructor(
         private val processResFunc: ProcessResultFunction,
         private val param: Any?,
         private val block: Any,
-        @JvmField val onCancellationConstructor: ((param: Any?) -> (Throwable) -> Unit)?,
+        @JvmField val onCancellationConstructor: OnCancellationConstructor?,
         @JvmField var onCompleteAction: OnCompleteAction? = null
     ) {
         /**
@@ -574,9 +582,9 @@ internal open class SelectImplementation<R> constructor(
          */
         fun tryRegister(select: SelectImplementation<R>): Boolean {
             assert { select.inRegistrationPhase }
-            assert { select.result === NO_RESULT }
+            assert { select.internalResult === NO_RESULT }
             regFunc(clauseObject, select, param)
-            return select.result === NO_RESULT
+            return select.internalResult === NO_RESULT
         }
 
         /**
@@ -618,6 +626,9 @@ internal open class SelectImplementation<R> constructor(
                 block(argument)
             }
         }
+
+        fun createOnCancellationAction(select: SelectInstance<*>, internalResult: Any?) =
+            onCancellationConstructor?.invoke(select, param, internalResult)
     }
 }
 

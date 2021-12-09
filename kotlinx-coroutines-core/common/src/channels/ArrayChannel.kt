@@ -156,7 +156,9 @@ internal open class ArrayChannel<E>(
                         break@loop
                     }
                     // too late, already cancelled, but we removed it from the queue and need to notify on undelivered element
-                    send!!.undeliveredElement()
+                    val send = send
+                    if (send !is SendElementSelectWithUndeliveredHandler<*> || !send.rereg)
+                        send!!.undeliveredElement()
                 }
             }
             if (replacement !== POLL_FAILED && replacement !is Closed<*>) {

@@ -192,7 +192,7 @@ internal abstract class AbstractSendChannel<E>(
                 when {
                     enqueueResult == null -> { // enqueued successfully
                         if (waiter is SelectInstance<*>) {
-                            waiter.invokeOnCompletion { send.remove() }
+                            waiter.removeOnCompletion(send)
                         } else {
                             waiter as CancellableContinuation<Unit>
                             waiter.removeOnCancellation(send)
@@ -253,9 +253,8 @@ internal abstract class AbstractSendChannel<E>(
 
     private fun SelectInstance<*>.helpCloseAndSelectInRegistrationPhaseClosed(element: E, closed: Closed<*>) {
         helpClose(closed)
-        val sendException = closed.sendException
         onUndeliveredElement?.callUndeliveredElementCatchingException(element)?.let {
-            it.addSuppressed(sendException)
+            it.addSuppressed(closed.sendException)
             selectInRegistrationPhase(Closed<E>(it))
             return
         }
@@ -387,14 +386,8 @@ internal abstract class AbstractSendChannel<E>(
         get() = SelectClause2Impl<E, SendChannel<E>>(
             clauseObject = this,
             regFunc = AbstractSendChannel<*>::registerSelectForSend as RegistrationFunction,
-            processResFunc = AbstractSendChannel<*>::processResultSelectSend as ProcessResultFunction,
-            onCancellationConstructor = onUndeliveredElementCancellationConstructor
+            processResFunc = AbstractSendChannel<*>::processResultSelectSend as ProcessResultFunction
         )
-    protected val onUndeliveredElementCancellationConstructor = onUndeliveredElement?.let {
-        { element: Any? ->
-            { cause: Throwable -> it(element as E) }
-        }
-    }
 
     private fun registerSelectForSend(select: SelectInstance<*>, element: Any?) {
         element as E
@@ -498,7 +491,8 @@ internal abstract class AbstractChannel<E>(
                 return send.pollResult
             }
             // too late, already cancelled, but we removed it from the queue and need to notify on undelivered element
-            send.undeliveredElement()
+            if (send !is SendElementSelectWithUndeliveredHandler<*> || !send.rereg)
+                send.undeliveredElement()
         }
     }
 
@@ -699,7 +693,7 @@ internal abstract class AbstractChannel<E>(
             clauseObject = this,
             regFunc = AbstractChannel<*>::registerSelectForReceive as RegistrationFunction,
             processResFunc = AbstractChannel<*>::processResultSelectReceive as ProcessResultFunction,
-            onCancellationConstructor = onUndeliveredElementCancellationConstructor
+            onCancellationConstructor = onUndeliveredElementReceiveCancellationConstructor
         )
 
     final override val onReceiveCatching
@@ -707,7 +701,7 @@ internal abstract class AbstractChannel<E>(
             clauseObject = this,
             regFunc = AbstractChannel<*>::registerSelectForReceive as RegistrationFunction,
             processResFunc = AbstractChannel<*>::processResultSelectReceiveCatching as ProcessResultFunction,
-            onUndeliveredElementCancellationConstructor
+            onCancellationConstructor = onUndeliveredElementReceiveCancellationConstructor
         )
 
     private fun registerSelectForReceive(select: SelectInstance<*>, ignoredParam: Any?) {
@@ -726,6 +720,12 @@ internal abstract class AbstractChannel<E>(
     private fun processResultSelectReceiveCatching(ignoredParam: Any?, selectResult: Any?): Any? =
         if (selectResult is Closed<*>) ChannelResult.closed(selectResult.closeCause)
         else ChannelResult.success(selectResult as E)
+
+    private val onUndeliveredElementReceiveCancellationConstructor: OnCancellationConstructor? = onUndeliveredElement?.let {
+        { select: SelectInstance<*>, ignoredParam: Any?, element: Any? ->
+            { cause: Throwable -> if (element !is Closed<*>) onUndeliveredElement.callUndeliveredElement(element as E, select.context) }
+        }
+    }
 
     // ------ protected ------
 
@@ -1006,12 +1006,20 @@ internal open class SendElementSelect<E>(
     private val channel: SendChannel<E>
 ) : Send() {
     private val lock = ReentrantLock()
-    private var success: Boolean? = null
+    private var success = -1 // 0 -- undecided, 1 -- success, 2 -- rereg, 3 -- fail
 
     override fun tryResumeSend(otherOp: PrepareOp?): Symbol? = lock.withLock {
-        if (success == null) success = select.trySelect(channel, Unit)
-        if (success!!) RESUME_TOKEN else null
+        select as SelectImplementation<*>
+        if (success == -1) {
+            success = select.trySelectDetailed(channel, Unit)
+        }
+        return@withLock if (success == 3) {
+            otherOp?.finishPrepare() // finish preparations
+            RESUME_TOKEN
+        } else null
     }
+    val rereg get() = lock.withLock { success == 2 }
+
     override fun completeResumeSend() {}
     override fun resumeSendClosed(closed: Closed<*>) {
         select.trySelect(channel, closed)
@@ -1040,17 +1048,17 @@ internal class SendElementSelectWithUndeliveredHandler<E>(
     pollResult: E,
     select: SelectInstance<*>,
     channel: SendChannel<E>,
-    @JvmField val onUndeliveredElement: OnUndeliveredElement<E>
+    onUndeliveredElement: OnUndeliveredElement<E>
 ) : SendElementSelect<E>(pollResult, select, channel) {
+    private val onUndeliveredElement = atomic<OnUndeliveredElement<E>?>(onUndeliveredElement)
+
     override fun remove(): Boolean {
-        if (!super.remove()) return false
-        // if the node was successfully removed (meaning it was added but was not received) then we have undelivered element
         undeliveredElement()
-        return true
+        return super.remove()
     }
 
     override fun undeliveredElement() {
-        onUndeliveredElement.callUndeliveredElement(pollResult, select.context)
+        onUndeliveredElement.getAndSet(null)?.callUndeliveredElement(pollResult, select.context)
     }
 }
 /**

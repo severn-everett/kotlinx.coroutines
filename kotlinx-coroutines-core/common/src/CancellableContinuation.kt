@@ -5,6 +5,7 @@
 package kotlinx.coroutines
 
 import kotlinx.coroutines.internal.*
+import kotlinx.coroutines.selects.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 
@@ -365,6 +366,9 @@ internal fun <T> getOrCreateCancellableContinuation(delegate: Continuation<T>): 
 internal fun CancellableContinuation<*>.removeOnCancellation(node: LockFreeLinkedListNode) =
     invokeOnCancellation(handler = RemoveOnCancel(node).asHandler)
 
+internal fun SelectInstance<*>.removeOnCompletion(node: LockFreeLinkedListNode) =
+    invokeOnCompletion(RemoveOnCancel(node))
+
 /**
  * Disposes the specified [handle] when this continuation is cancelled.
  *
@@ -381,9 +385,10 @@ public fun CancellableContinuation<*>.disposeOnCancellation(handle: DisposableHa
 
 // --------------- implementation details ---------------
 
-private class RemoveOnCancel(private val node: LockFreeLinkedListNode) : BeforeResumeCancelHandler() {
+private class RemoveOnCancel(private val node: LockFreeLinkedListNode) : BeforeResumeCancelHandler(), OnCompleteAction {
     override fun invoke(cause: Throwable?) { node.remove() }
     override fun toString() = "RemoveOnCancel[$node]"
+    override fun invoke() { node.remove() }
 }
 
 private class DisposeOnCancel(private val handle: DisposableHandle) : CancelHandler() {

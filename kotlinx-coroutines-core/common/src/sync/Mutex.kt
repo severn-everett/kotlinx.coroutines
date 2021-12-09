@@ -233,8 +233,8 @@ internal class MutexImpl(locked: Boolean) : SemaphoreImpl(1, if (locked) 1 else 
             }
         }
 
-        override fun selectInRegistrationPhase(selectResult: Any?) {
-            select.selectInRegistrationPhase(selectResult)
+        override fun selectInRegistrationPhase(internalResult: Any?) {
+            select.selectInRegistrationPhase(internalResult)
             this@MutexImpl.owner.value = owner
         }
     }

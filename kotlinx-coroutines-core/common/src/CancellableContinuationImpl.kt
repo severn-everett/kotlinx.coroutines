@@ -566,7 +566,7 @@ internal abstract class CancelHandler : CancelHandlerBase(), NotCompleted
 internal abstract class BeforeResumeCancelHandler : CancelHandler()
 
 // Wrapper for lambdas, for the performance sake CancelHandler can be subclassed directly
-private class InvokeOnCancel( // Clashes with InvokeOnCancellation
+private class InvokeOnCancel( // Clashes with InvokeOnCancellation: BeforeResumeCancelHandler()
     private val handler: CompletionHandler
 ) : CancelHandler() {
     override fun invoke(cause: Throwable?) {
