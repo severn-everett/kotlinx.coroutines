@@ -366,9 +366,6 @@ internal fun <T> getOrCreateCancellableContinuation(delegate: Continuation<T>): 
 internal fun CancellableContinuation<*>.removeOnCancellation(node: LockFreeLinkedListNode) =
     invokeOnCancellation(handler = RemoveOnCancel(node).asHandler)
 
-internal fun SelectInstance<*>.removeOnCompletion(node: LockFreeLinkedListNode) =
-    invokeOnCompletion(RemoveOnCancel(node))
-
 /**
  * Disposes the specified [handle] when this continuation is cancelled.
  *
@@ -385,10 +382,9 @@ public fun CancellableContinuation<*>.disposeOnCancellation(handle: DisposableHa
 
 // --------------- implementation details ---------------
 
-private class RemoveOnCancel(private val node: LockFreeLinkedListNode) : BeforeResumeCancelHandler(), OnCompleteAction {
+private class RemoveOnCancel(private val node: LockFreeLinkedListNode) : BeforeResumeCancelHandler() {
     override fun invoke(cause: Throwable?) { node.remove() }
     override fun toString() = "RemoveOnCancel[$node]"
-    override fun invoke() { node.remove() }
 }
 
 private class DisposeOnCancel(private val handle: DisposableHandle) : CancelHandler() {
