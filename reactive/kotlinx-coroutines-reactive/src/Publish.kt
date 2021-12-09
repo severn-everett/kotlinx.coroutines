@@ -101,13 +101,17 @@ public class PublisherCoroutine<in T>(
 
     override val onSend: SelectClause2<T, SendChannel<T>>
         get() = SelectClause2Impl(
-            mutex,
-            mutex.onLock.regFunc,
+            this,
+            PublisherCoroutine<*>::onSendSelectRegFunction as RegistrationFunction,
             PublisherCoroutine<*>::onSendSelectProcessResult as ProcessResultFunction
         )
 
+    private fun onSendSelectRegFunction(select: SelectInstance<*>, element: Any?) {
+        mutex.onLock.regFunc(mutex, select, null)
+    }
+
     private fun onSendSelectProcessResult(element: Any?, clauseResult: Any?): Any? {
-        mutex.onLock.processResFunc.invoke(mutex, element, clauseResult)
+        mutex.onLock.processResFunc.invoke(mutex, null, clauseResult)
         doLockedNext(element as T)?.let { throw it }
         return this
     }

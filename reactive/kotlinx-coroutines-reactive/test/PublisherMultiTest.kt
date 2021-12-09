@@ -32,21 +32,26 @@ class PublisherMultiTest : TestBase() {
 
     @Test
     fun testConcurrentStressOnSend() = runBlocking {
-        val n = 10_000 * stressTestMultiplier
+        val n = 1 // 10_000 * stressTestMultiplier
         val observable = publish<Int> {
             // concurrent emitters (many coroutines)
             val jobs = List(n) {
                 // launch
                 launch(Dispatchers.Default) {
+                    println("AA")
                     select<Unit> {
-                        onSend(it) {}
+                        onSend(it) {
+                            println("BBB")
+                        }
                     }
+                    println("CCC")
                 }
             }
             jobs.forEach { it.join() }
         }
         val resultSet = mutableSetOf<Int>()
         observable.collect {
+            println("XXX")
             assertTrue(resultSet.add(it))
         }
         assertEquals(n, resultSet.size)
