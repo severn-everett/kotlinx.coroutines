@@ -98,7 +98,7 @@ private class RxObservableCoroutine<T : Any>(
     }
 
     private fun onSendSelectProcessResult(element: Any?, clauseResult: Any?): Any? {
-        mutex.onLock.processResFunc.invoke(mutex, element, clauseResult)
+        mutex.onLock.processResFunc.invoke(mutex, null, clauseResult)
         doLockedNext(element as T)?.let { throw it }
         return this
     }

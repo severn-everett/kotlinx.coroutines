@@ -367,6 +367,7 @@ internal open class SelectImplementation<R> constructor(
      * updates the state to this clause reference.
      */
     protected fun ClauseData<R>.register(reregister: Boolean = false) {
+        if (clauseObject is String) error("WTF")
         // Is there already selected clause?
         if (state.value is ClauseData<*>) return
         // For new clauses, check that there does not exist
@@ -417,7 +418,7 @@ internal open class SelectImplementation<R> constructor(
      * the continuation into the [state] field if there is no more clause to be re-registered.
      */
     @OptIn(ExperimentalStdlibApi::class)
-    private suspend fun waitUntilSelected() = suspendCancellableCoroutineReusable<Unit> sc@ { cont ->
+    private suspend fun waitUntilSelected() = suspendCancellableCoroutine<Unit> sc@ { cont ->
         // Perform a clean-up in case of cancellation.
         cont.invokeOnCancellation(this.asHandler)
         // Update the state.
@@ -436,7 +437,6 @@ internal open class SelectImplementation<R> constructor(
                 // This `select` operation became completed during clauses re-registration.
                 curState is ClauseData<*> -> {
                     cont.resume(Unit, curState.createOnCancellationAction(this, internalResult))
-//                    cont.resume(Unit)
                     return@sc
                 }
                 // This `select` cannot be in any other state.
@@ -465,6 +465,7 @@ internal open class SelectImplementation<R> constructor(
     // 2 -- reregister
     // 3 -- success
     public fun trySelectDetailed(clauseObject: Any, result: Any?, onCancellation: ((Throwable) -> Unit)? = null): Int {
+        if (clauseObject is String) error("FUCK!")
         /**
          * Tries to select the specified clause and returns the suspended coroutine on success.
          * On failure, when another clause is already selected or this `select` operation is cancelled,
@@ -510,6 +511,7 @@ internal open class SelectImplementation<R> constructor(
      * Finds the clause with the corresponding [clause object][SelectClause.clauseObject].
      */
     private fun findClause(clauseObject: Any) = clauses?.run {
+        if (clauseObject is String) println("AAAA")
         find { it.clauseObject === clauseObject } ?: error("Clause with object $clauseObject is not found")
     }
 

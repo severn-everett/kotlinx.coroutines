@@ -91,6 +91,7 @@ public suspend inline fun <T> Semaphore.withPermit(action: () -> T): T {
     }
 }
 
+// TODO do not extend CompletionHandlerBase
 @Suppress("UNCHECKED_CAST")
 internal open class SemaphoreImpl(private val permits: Int, acquiredPermits: Int) : CompletionHandlerBase(), Semaphore {
     /*
