@@ -63,7 +63,19 @@ private class RxObservableCoroutine<T : Any>(
     override val channel: SendChannel<T> get() = this
 
     // Mutex is locked while subscriber.onXXX is being invoked
-    private val mutex = Mutex()
+    private val mutex: Mutex = RxObservableCoroutineMutex()
+    @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE", "CANNOT_OVERRIDE_INVISIBLE_MEMBER")
+    inner class RxObservableCoroutineMutex : MutexImpl(locked = false) {
+        override fun onLockRegFunction(select: SelectInstance<*>, element: Any?) {
+            super.onLockRegFunction(select, owner = null)
+        }
+
+        override fun onLockProcessResult(element: Any?, result: Any?): Any? {
+            super.onLockProcessResult(owner = null, result)
+            doLockedNext(element as T)?.let { throw it }
+            return this@RxObservableCoroutine
+        }
+    }
 
     private val _signal = atomic(OPEN)
 
@@ -88,21 +100,8 @@ private class RxObservableCoroutine<T : Any>(
     }
 
     override val onSend: SelectClause2<T, SendChannel<T>>
-        get() = SelectClause2Impl(
-            this,
-            RxObservableCoroutine<*>::onSendSelectRegFunction as RegistrationFunction,
-            RxObservableCoroutine<*>::onSendSelectProcessResult as ProcessResultFunction
-        )
+        get() = mutex.onLock as SelectClause2<T, SendChannel<T>>
 
-    private fun onSendSelectRegFunction(select: SelectInstance<*>, element: Any?) {
-        mutex.onLock.regFunc(mutex, select, null)
-    }
-
-    private fun onSendSelectProcessResult(element: Any?, clauseResult: Any?): Any? {
-        mutex.onLock.processResFunc.invoke(mutex, null, clauseResult)
-        doLockedNext(element as T)?.let { throw it }
-        return this
-    }
 
     // assert: mutex.isLocked()
     private fun doLockedNext(elem: T): Throwable? {

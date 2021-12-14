@@ -134,7 +134,7 @@ public suspend inline fun <T> Mutex.withLock(owner: Any? = null, action: () -> T
 }
 
 
-internal class MutexImpl(locked: Boolean) : SemaphoreImpl(1, if (locked) 1 else 0), Mutex {
+internal open class MutexImpl(locked: Boolean) : SemaphoreImpl(1, if (locked) 1 else 0), Mutex {
     /**
      * After the lock is acquired, the corresponding owner is stored in this field.
      * The [unlock] operation checks the owner and either re-sets it to [NO_OWNER],
@@ -197,11 +197,11 @@ internal class MutexImpl(locked: Boolean) : SemaphoreImpl(1, if (locked) 1 else 
         processResFunc = MutexImpl::onLockProcessResult as ProcessResultFunction,
     )
 
-    private fun onLockRegFunction(select: SelectInstance<*>, owner: Any?) {
+    protected open fun onLockRegFunction(select: SelectInstance<*>, owner: Any?) {
         onAcquire.regFunc(this, SelectInstanceWithOwner(select, owner), owner)
     }
 
-    private fun onLockProcessResult(owner: Any?, result: Any?): Any? {
+    protected open fun onLockProcessResult(owner: Any?, result: Any?): Any? {
         onAcquire.processResFunc(this, null, result)
         while (isLocked && this.owner.value === NO_OWNER) {}
         return this
@@ -238,6 +238,8 @@ internal class MutexImpl(locked: Boolean) : SemaphoreImpl(1, if (locked) 1 else 
             this@MutexImpl.owner.value = owner
         }
     }
+
+    override fun toString() = "Mutex@${hexAddress}"
 }
 
 @SharedImmutable

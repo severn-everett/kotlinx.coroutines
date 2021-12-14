@@ -465,7 +465,6 @@ internal open class SelectImplementation<R> constructor(
     // 2 -- reregister
     // 3 -- success
     public fun trySelectDetailed(clauseObject: Any, result: Any?, onCancellation: ((Throwable) -> Unit)? = null): Int {
-        if (clauseObject is String) error("FUCK!")
         /**
          * Tries to select the specified clause and returns the suspended coroutine on success.
          * On failure, when another clause is already selected or this `select` operation is cancelled,
@@ -511,8 +510,8 @@ internal open class SelectImplementation<R> constructor(
      * Finds the clause with the corresponding [clause object][SelectClause.clauseObject].
      */
     private fun findClause(clauseObject: Any) = clauses?.run {
-        if (clauseObject is String) println("AAAA")
-        find { it.clauseObject === clauseObject } ?: error("Clause with object $clauseObject is not found")
+        find { it.clauseObject === clauseObject }
+            ?: error("Clause with object $clauseObject is not found")
     }
 
     // ==============

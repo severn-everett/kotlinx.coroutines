@@ -73,7 +73,20 @@ public class PublisherCoroutine<in T>(
     override val channel: SendChannel<T> get() = this
 
     // Mutex is locked when either nRequested == 0 or while subscriber.onXXX is being invoked
-    private val mutex = Mutex(locked = true)
+    private val mutex: Mutex = PublisherCoroutineMutex()
+    @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE", "CANNOT_OVERRIDE_INVISIBLE_MEMBER")
+    private inner class PublisherCoroutineMutex : MutexImpl(locked = false) {
+        override fun onLockRegFunction(select: SelectInstance<*>, element: Any?) {
+            super.onLockRegFunction(select, owner = null)
+        }
+
+        override fun onLockProcessResult(element: Any?, result: Any?): Any? {
+            super.onLockProcessResult(owner = null, result)
+            doLockedNext(element as T)?.let { throw it }
+            return this@PublisherCoroutine
+        }
+    }
+
     private val _nRequested = atomic(0L) // < 0 when closed (CLOSED or SIGNALLED)
 
     @Volatile
@@ -100,21 +113,7 @@ public class PublisherCoroutine<in T>(
     }
 
     override val onSend: SelectClause2<T, SendChannel<T>>
-        get() = SelectClause2Impl(
-            this,
-            PublisherCoroutine<*>::onSendSelectRegFunction as RegistrationFunction,
-            PublisherCoroutine<*>::onSendSelectProcessResult as ProcessResultFunction
-        )
-
-    private fun onSendSelectRegFunction(select: SelectInstance<*>, element: Any?) {
-        mutex.onLock.regFunc(mutex, select, null)
-    }
-
-    private fun onSendSelectProcessResult(element: Any?, clauseResult: Any?): Any? {
-        mutex.onLock.processResFunc.invoke(mutex, null, clauseResult)
-        doLockedNext(element as T)?.let { throw it }
-        return this
-    }
+        get() = mutex.onLock as SelectClause2<T, SendChannel<T>>
 
     /*
      * This code is not trivial because of the following properties:
