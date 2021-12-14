@@ -439,6 +439,8 @@ internal open class SelectImplementation<R> constructor(
                     cont.resume(Unit, curState.createOnCancellationAction(this, internalResult))
                     return@sc
                 }
+                // Cancelled
+                curState === STATE_COMPLETED -> return@sc
                 // This `select` cannot be in any other state.
                 else -> error("unexpected state: $curState")
             }
