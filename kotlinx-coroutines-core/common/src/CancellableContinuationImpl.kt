@@ -65,7 +65,7 @@ internal open class CancellableContinuationImpl<in T>(
         |  RESUMED  |
         +-----------+
 
-        Note: both tryResume and trySuspend can be invoked at most once, first invocation wins
+        Note: both tryResume and trySuspend can be invoked at most once, first invocation wins.
      */
     private val _decisionAndIndex = atomic(construct(UNDECIDED, NO_INDEX))
 
@@ -346,6 +346,16 @@ internal open class CancellableContinuationImpl<in T>(
     override fun resume(value: T, onCancellation: ((cause: Throwable) -> Unit)?) =
         resumeImpl(value, resumeMode, onCancellation)
 
+    /**
+     * An optimized version for the code below that does not allocate
+     * a cancellation handler object and efficiently stores the specified
+     * [segment] and [index] in this [CancellableContinuationImpl].
+     * ```
+     * invokeOnCancellation { cause ->
+     *   segment.invokeOnCancellation(index, cause)
+     * }
+     * ```
+     */
     internal fun invokeOnCancellation(segment: Segment<*>, index: Int) {
         _decisionAndIndex.update {
             check(it.index == NO_INDEX) {
