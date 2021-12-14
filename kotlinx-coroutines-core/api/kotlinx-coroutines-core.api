@@ -55,7 +55,6 @@ public class kotlinx/coroutines/CancellableContinuationImpl : kotlin/coroutines/
 	public fun <init> (Lkotlin/coroutines/Continuation;I)V
 	public final fun callCancelHandler (Lkotlinx/coroutines/CancelHandler;Ljava/lang/Throwable;)V
 	public final fun callOnCancellation (Lkotlin/jvm/functions/Function1;Ljava/lang/Throwable;)V
-	public final fun callSegmentOnCancellation (Lkotlinx/coroutines/internal/Segment;Ljava/lang/Throwable;)V
 	public fun cancel (Ljava/lang/Throwable;)Z
 	public fun completeResume (Ljava/lang/Object;)V
 	public fun getCallerFrame ()Lkotlin/coroutines/jvm/internal/CoroutineStackFrame;

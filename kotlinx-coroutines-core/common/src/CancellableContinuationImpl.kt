@@ -223,7 +223,7 @@ internal open class CancellableContinuationImpl<in T>(
     fun callCancelHandler(handler: CancelHandler, cause: Throwable?) =
         callCancelHandlerSafely { handler.invoke(cause) }
 
-    fun callSegmentOnCancellation(segment: Segment<*>, cause: Throwable?) {
+    private fun callSegmentOnCancellation(segment: Segment<*>, cause: Throwable?) {
         val index = _decisionAndIndex.value.index
         check(index != NO_INDEX) { "The index for segment.invokeOnCancellation(..) is broken" }
         callCancelHandlerSafely { segment.invokeOnCancellation(index, cause) }
