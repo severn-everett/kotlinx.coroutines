@@ -200,7 +200,8 @@ private class SemaphoreImpl(private val permits: Int, acquiredPermits: Int) : Se
         val i = (enqIdx % SEGMENT_SIZE).toInt()
         // the regular (fast) path -- if the cell is empty, try to install continuation
         if (segment.cas(i, null, cont)) { // installed continuation successfully
-            cont.invokeOnCancellation(CancelSemaphoreAcquisitionHandler(segment, i).asHandler)
+            cont as CancellableContinuationImpl<*>
+            cont.invokeOnCancellation(segment, i)
             return true
         }
         // On CAS failure -- the cell must be either PERMIT or BROKEN
@@ -247,17 +248,6 @@ private class SemaphoreImpl(private val permits: Int, acquiredPermits: Int) : Se
     }
 }
 
-private class CancelSemaphoreAcquisitionHandler(
-    private val segment: SemaphoreSegment,
-    private val index: Int
-) : CancelHandler() {
-    override fun invoke(cause: Throwable?) {
-        segment.cancel(index)
-    }
-
-    override fun toString() = "CancelSemaphoreAcquisitionHandler[$segment, $index]"
-}
-
 private fun createSegment(id: Long, prev: SemaphoreSegment?) = SemaphoreSegment(id, prev, 0)
 
 private class SemaphoreSegment(id: Long, prev: SemaphoreSegment?, pointers: Int) : Segment<SemaphoreSegment>(id, prev, pointers) {
@@ -280,7 +270,7 @@ private class SemaphoreSegment(id: Long, prev: SemaphoreSegment?, pointers: Int)
 
     // Cleans the acquirer slot located by the specified index
     // and removes this segment physically if all slots are cleaned.
-    fun cancel(index: Int) {
+    override fun invokeOnCancellation(index: Int, cause: Throwable?) {
         // Clean the slot
         set(index, CANCELLED)
         // Remove this segment if needed

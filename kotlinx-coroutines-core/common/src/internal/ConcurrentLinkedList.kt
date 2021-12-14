@@ -187,7 +187,7 @@ internal abstract class ConcurrentLinkedListNode<N : ConcurrentLinkedListNode<N>
  * Essentially, this is a node in the Michael-Scott queue algorithm,
  * but with maintaining [prev] pointer for efficient [remove] implementation.
  */
-internal abstract class Segment<S : Segment<S>>(val id: Long, prev: S?, pointers: Int): ConcurrentLinkedListNode<S>(prev) {
+internal abstract class Segment<S : Segment<S>>(val id: Long, prev: S?, pointers: Int): ConcurrentLinkedListNode<S>(prev), NotCompleted {
     /**
      * This property should return the maximal number of slots in this segment,
      * it is used to define whether the segment is logically removed.
@@ -211,6 +211,10 @@ internal abstract class Segment<S : Segment<S>>(val id: Long, prev: S?, pointers
 
     // returns `true` if this segment is logically removed after the decrement.
     internal fun decPointers() = cleanedAndPointers.addAndGet(-(1 shl POINTERS_SHIFT)) == maxSlots && !isTail
+
+    internal open fun invokeOnCancellation(index: Int, cause: Throwable?) {
+        onSlotCleaned()
+    }
 
     /**
      * Invoked on each slot clean-up; should not be invoked twice for the same slot.
